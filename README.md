@@ -22,4 +22,16 @@ Then, execute select_column.py for feature selection.
 python select_column.py --select_k [number of features to select] --rule_dir [path for the saved discovered features]
 ```
 
-Finally, train the encoder with selected features via below commands.
+Follow the below commands to train the encoder with selected features and evaluate with linear model.
+1. Training
+```
+python train_embeddings.py --M [number of discovered features to use in training] 
+```
+2. Embedding Extraction
+```
+python extract_embeddings.py --M [number of discovered features to use in training]
+```
+3. Evaluation
+```
+python eval_embeddings.py --M [number of discovered features to use in training]
+```
