@@ -21,7 +21,13 @@ if __name__ == "__main__":
     torch.cuda.set_device(device)
     
     if args.dataset == '':
-        datasets = ['adult', 'housing']
+        datasets = [
+            'adult', 'balance-scale', 'bank', 'bike', 'blood',
+            'car', 'crab', 'communities', 'credit-g', 'diabetes',
+            'eucalyptus', 'forest-fires', 'heart', 'housing', 'insurance',
+            'junglechess', 'myocardial', 'sequence-type', 'solution-mix', 'tic-tac-toe',
+            'vehicle', 'wine',
+        ]
     else:
         datasets = [args.dataset]
     

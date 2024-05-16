@@ -19,7 +19,7 @@ import optimization_utils as opt
 
 import faiss
 
-REGRESSION_DATASETS = ['housing']
+REGRESSION_DATASETS = ['forest-fires', 'housing', 'insurance', 'solution-mix']
 
 class AverageMeter:
     """
