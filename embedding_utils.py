@@ -19,7 +19,7 @@ import optimization_utils as opt
 
 import faiss
 
-REGRESSION_DATASETS = ['insurance', 'housing', 'solution-mix', 'forest-fires', 'bike', 'crab', 'wine']
+REGRESSION_DATASETS = ['housing']
 
 class AverageMeter:
     """
@@ -66,68 +66,20 @@ def parse_arguments(
         help='Dataset'
     )
     parser.add_argument(
-        '--backbone', type=str, default='mlp',
-        help='Backbone'
-    )
-    parser.add_argument(
-        '--loss', type=str, default='clip',
-        help='Loss Objective'
-    )
-    parser.add_argument(
-        '--with_ae', action='store_true',
-        help='With Auto Encoding of Original Columns'
-    )
-    parser.add_argument(
-        '--wo_selection', action='store_true',
-        help='Withour Selection of Columns'
-    )
-    parser.add_argument(
-        '--wo_selection_v2', action='store_true',
-        help='Withour Selection (V2) of Columns'
-    )
-    parser.add_argument(
-        '--with_negative', action='store_true',
-        help='With Negative Columns'
-    )
-    parser.add_argument(
-        '--no_diversity', action='store_true',
-        help='With No Diversity Prompt Results'
-    )
-    parser.add_argument(
-        '--with_random', action='store_true',
-        help='With Random Columns'
-    )
-    parser.add_argument(
-        '--with_diverse', action='store_true',
-        help='With Diverse Columns'
-    )
-    parser.add_argument(
-        '--allow_duplicates', action='store_true',
-        help='Allow Duplicates'
-    )
-    parser.add_argument(
-        '--embedding_dim', type=int, default=1024,
-        help='Embedding Dimension'
+        '--n_clusters', type=int, default=10,
+        help='Number of clusters'
     )
     parser.add_argument(
         '--hidden_dim', type=int, default=1024,
-        help='Hidden Dimension'
+        help='Size of hidden dimension in the model'
     )
     parser.add_argument(
         '--proj_dim', type=int, default=128,
-        help='Projector Dimension'
+        help='Size of projected dimension'
     )
     parser.add_argument(
-        '--max_num_head', type=int, default=-1,
-        help='Maximum number of heads'
-    )
-    parser.add_argument(
-        '--shots', type=str, default='full',
-        help='Number of Shots'
-    )
-    parser.add_argument(
-        '--with_origin', action='store_true',
-        help='Concatenate with Original Columns'
+        '--M', type=int, default=20,
+        help='Maximum number of discovered features to use in learning'
     )
     parser.add_argument(
         '--batch_size', type=int, default=128,
@@ -139,15 +91,7 @@ def parse_arguments(
     )
     parser.add_argument(
         '--iterations', type=int, default=1000,
-        help='Number of Epochs'
-    )
-    parser.add_argument(
-        '--rule_dir', type=str, default='boosting-wR_5rules_40trials',
-        help='The directory name to save results'
-    )
-    parser.add_argument(
-        '--n_clusters', type=int, default=10,
-        help='Number of clusters'
+        help='Number of iterations'
     )
     parser.add_argument(
         '--data_dir', type=str, default='data',
@@ -193,7 +137,7 @@ def discretize_cols(
         numerical = check_numerical(train_df[c])
 
         if numerical:
-            model = KMeans(n_clusters = n_clusters, random_state=seed)
+            model = KMeans(n_clusters = n_clusters, random_state=seed, n_init=10)
             model.fit(train_df[c].values.reshape(-1, 1))
 
             disc_train_df[c] = model.predict(train_df[c].values.reshape(-1, 1))
@@ -206,77 +150,36 @@ def discretize_cols(
     return disc_train_df, disc_test_df
 
 def get_indicator_df(
-    loss_type,
     dataset,
     seed,
     n_clusters,
     proxy_path,
     df_path,
-    allow_duplicates=False,
 ):
-    if loss_type in ['supcon', 'supcon_v3']:
-        DISCRETIZE = False
-        
-        if 'negative' in df_path.name:
-            path_detail = 'disc_dataframe_negative'
-        if 'random' in df_path.name:
-            path_detail = 'disc_dataframe_random'
-        elif 'diverse' in df_path.name:
-            path_detail = 'disc_dataframe_diverse'
-        elif 'wo_selection_v2' in df_path.name:
-            path_detail = 'disc_dataframe_wo_selection_v2'
-        elif 'wo_selection' in df_path.name:
-            path_detail = 'disc_dataframe_wo_selection'
-        elif 'no_diversity' in df_path.name:
-            path_detail = 'disc_dataframe_no_diversity'
-        else:
-            path_detail = 'disc_dataframe'
-            
-        if allow_duplicates:
-            path_detail += '_allow_duplicates'
-            
-        disc_save_path = proxy_path / path_detail
-            
-        disc_save_path.mkdir(exist_ok=True, parents=True)
-        if DISCRETIZE:
-            print(f'Dicretizing {dataset} {seed}')
-            if 'diverse' in df_path.name:
-                new_train_df = pd.read_csv(df_path / f'{dataset}_{seed}_10000_train.csv')
-                new_test_df = pd.read_csv(df_path / f'{dataset}_{seed}_10000_test.csv')
-                
-                if not allow_duplicates:
-                    new_train_df = new_train_df.T.drop_duplicates(keep='first').T
-                    
-                new_test_df = new_test_df[new_train_df.columns]
-            else:
-                new_train_df = pd.read_csv(df_path / f'{dataset}_{seed}_train.csv')
-                new_test_df = pd.read_csv(df_path / f'{dataset}_{seed}_test.csv')
+    path_detail = 'disc_dataframe'
+    disc_save_path = proxy_path / path_detail
+    disc_save_path.mkdir(exist_ok=True, parents=True)
+    
+    print(f'Dicretizing {dataset} {seed}')
 
-            new_train_df, new_test_df = opt.fill_missing(new_train_df, new_test_df)
-            ind_train_df, ind_test_df = discretize_cols(
-                new_train_df,
-                new_test_df,
-                seed=seed,
-                n_clusters=n_clusters
-            )
+    new_train_df = pd.read_csv(df_path / f'{dataset}_{seed}_train.csv')
+    new_test_df = pd.read_csv(df_path / f'{dataset}_{seed}_test.csv')
 
-            ind_train_df.to_csv(disc_save_path / f'{dataset}_{seed}_train.csv', index=False)
-            ind_test_df.to_csv(disc_save_path / f'{dataset}_{seed}_test.csv', index=False)
-        else:
-            ind_train_df = pd.read_csv(disc_save_path / f'{dataset}_{seed}_train.csv')
-            ind_test_df = pd.read_csv(disc_save_path / f'{dataset}_{seed}_test.csv')
+    new_train_df, new_test_df = opt.fill_missing(new_train_df, new_test_df)
+    ind_train_df, ind_test_df = discretize_cols(
+        new_train_df,
+        new_test_df,
+        seed=seed,
+        n_clusters=n_clusters
+    )
 
-    elif loss_type in ['clip', 'supcon_v2']:
-        ind_train_df = pd.read_csv(df_path / f'{dataset}_{seed}_train.csv')
-        ind_test_df = pd.read_csv(df_path / f'{dataset}_{seed}_test.csv')
-        
-        
-    else:
-        assert(0)
+    ind_train_df.to_csv(disc_save_path / f'{dataset}_{seed}_train.csv', index=False)
+    ind_test_df.to_csv(disc_save_path / f'{dataset}_{seed}_test.csv', index=False)
+
         
     return ind_train_df, ind_test_df
 
-class LifeDataset(torch.utils.data.Dataset):
+class TstLLMDataset(torch.utils.data.Dataset):
     def __init__(self, X, y, indicators=None):
         assert(type(X) == np.ndarray)
         
@@ -305,166 +208,58 @@ def get_loader(
     batch_size=128,
     shuffle=False,
 ):
-    ds = LifeDataset(X, y, indicators)
+    ds = TstLLMDataset(X, y, indicators)
     dl = torch.utils.data.DataLoader(
         ds, batch_size=batch_size, shuffle=shuffle, num_workers=8
     )
     
     return dl
 
-class MLPProto(nn.Module):
-    def __init__(self, in_features, embedding_dim, hidden_dim=1024):
-        super(MLPProto, self).__init__()
+class MLPEncoder(nn.Module):
+    def __init__(self, in_features, hidden_dim=1024):
+        super(MLPEncoder, self).__init__()
         self.in_features = in_features
         self.hidden_dim = hidden_dim
-        self.embedding_dim = embedding_dim
 
         self.encoder = nn.Sequential(
             nn.Linear(in_features, hidden_dim),
             nn.ReLU(inplace=True),
-            nn.Linear(hidden_dim, embedding_dim)
+            nn.Linear(hidden_dim, hidden_dim)
         )
 
     def forward(self, inputs):
         embeddings = self.encoder(inputs)
         return embeddings
     
-class FTTransformer(nn.Module):
-    def __init__(self, in_features, hidden_dim, n_cat, n_num, enc=None):
-        super().__init__()
-        self.n_cat = n_cat
-        self.n_num = n_num
-        self.hidden_dim = hidden_dim
-        
-        n_cat_options = in_features - n_num
-        self.padding_idx = n_cat_options
-        
-        self.catnum = []
-        for c in enc.categories_:
-            self.catnum.append(len(c))
-
-        self.cls = nn.Parameter(torch.ones(1, hidden_dim), requires_grad=True)
-        
-        self.cat_w = nn.Embedding(
-            num_embeddings=n_cat_options + 1,
-            embedding_dim=hidden_dim,
-            padding_idx=self.padding_idx,
-        )
-        self.cat_b = nn.Parameter(torch.randn(self.n_cat, hidden_dim), requires_grad=True)
-        
-        self.num_w = nn.Parameter(torch.randn(self.n_num, hidden_dim), requires_grad=True)
-        self.num_b = nn.Parameter(torch.randn(self.n_num, hidden_dim), requires_grad=True)
-        
-        encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=8, batch_first=True)
-        self.te_layer = nn.TransformerEncoder(encoder_layer, num_layers=3)
-        
-    def forward(self, x):
-        bsz, n_columns = x.shape
-        
-        x_num = x[:, :self.n_num]
-        x_cat = x[:, self.n_num:].int()
-                
-        cls = self.cls.unsqueeze(0).tile(bsz, 1, 1)
-        
-        cur_start = 0
-        cur_end = 0
-        
-        x_cat_index = []
-        for i, cn in enumerate(self.catnum):
-            cur_end += cn
-            xci = []
-            for b in x_cat[:, cur_start:cur_end]:
-                tg = b.nonzero(as_tuple=True)[0]
-                if len(tg) == 0:
-                    tg = torch.tensor([self.padding_idx], device=b.device)
-                xci.append(tg)
-
-            xci = torch.stack(xci, dim=0)
-            x_cat_index.append(xci)
-
-            cur_start += cn
-
-        x_cat_index = torch.cat(x_cat_index, dim=1)
-        
-        cat_emb = self.cat_w(x_cat_index) + self.cat_b.unsqueeze(dim=0).tile(bsz, 1, 1)
-            
-        num_emb = torch.mul(
-            x_num.unsqueeze(dim=-1).tile(1, 1, self.hidden_dim),
-            self.num_w.unsqueeze(dim=0).tile(bsz, 1, 1)
-        ) +  self.num_b.unsqueeze(dim=0).tile(bsz, 1, 1)
-        
-        emb = torch.cat((cls, cat_emb, num_emb), dim=1)
-        
-        out = self.te_layer(emb)
-        out = out[:, 0, :]
-        
-        return out
-    
-class LifeMLP(nn.Module):
+class TstLLM(nn.Module):
     def __init__(
         self,
-        model_type,
-        loss_type,
         in_features,
-        n_cat,
-        n_num,
-        embedding_dim=1024,
         hidden_dim=1024,
         proj_dim=128,
-        ind_dim=-1,
-        max_num_head=-1,
-        enc=None,
-        with_ae=False,
+        M=-1
     ):
-        super(LifeMLP, self).__init__()
-        self.with_ae = with_ae
-        self.loss_type = loss_type
+        super(TstLLM, self).__init__()
+        assert(M > 0)
         
-        if model_type == 'mlp':
-            self.encoder = MLPProto(in_features, embedding_dim=embedding_dim, hidden_dim=hidden_dim)
-        elif model_type == 'tf':
-            self.encoder = FTTransformer(in_features, hidden_dim, n_cat, n_num, enc=enc)
-        else:
-            assert(0)
-            
-        if loss_type == 'supcon':
-            self.head = nn.Linear(embedding_dim, proj_dim)
-        elif loss_type == 'supcon_v2':
-            self.head = nn.Linear(embedding_dim, proj_dim)
-        elif loss_type == 'supcon_v3':
-            if max_num_head == -1:
-                num_head = ind_dim
-            else:
-                num_head = min(max_num_head, ind_dim)
-                
-            self.head = nn.ModuleList(
-                [nn.Linear(embedding_dim, proj_dim) for i in range(num_head)]
-            )
-        elif loss_type == 'clip':
-            self.head = nn.Linear(embedding_dim, ind_dim)
-        else:
-            assert(0)
-            
-        if with_ae:
-            self.ae_head = nn.Linear(embedding_dim, in_features)
+        self.encoder = MLPEncoder(in_features, hidden_dim=hidden_dim)
+
+        self.head = nn.ModuleList(
+            [nn.Linear(hidden_dim, proj_dim) for i in range(M)]
+        )
 
     def forward(self, x):
         feat = self.encoder(x)
-        if self.loss_type == 'supcon_v3':
-            new_feat = [F.normalize(h(feat), dim=1) for h in self.head]
-        else:
-            new_feat = F.normalize(self.head(feat), dim=1)
-            
-        if self.with_ae:
-            ae_feat = F.normalize(self.ae_head(feat), dim=1)
-        else:
-            ae_feat = None
-        
-        return new_feat, ae_feat
+        new_feat = [F.normalize(h(feat), dim=1) for h in self.head]
+
+        return new_feat, None
     
 class SupConLoss(nn.Module):
-    """Supervised Contrastive Learning: https://arxiv.org/pdf/2004.11362.pdf.
-    It also supports the unsupervised contrastive loss in SimCLR"""
+    """
+    Reference: https://github.com/HobbitLong/SupContrast
+    Supervised Contrastive Learning: https://arxiv.org/pdf/2004.11362.pdf.
+    It also supports the unsupervised contrastive loss in SimCLR.
+    """
     def __init__(self, temperature=0.07, contrast_mode='all',
                  base_temperature=0.07):
         super(SupConLoss, self).__init__()
@@ -561,63 +356,30 @@ class SupConLoss(nn.Module):
 
         return loss
     
-class ClipLoss(nn.Module):
-    def __init__(self):
-        super(ClipLoss, self).__init__()
-
-    def forward(self, features, labels):
-        sim_matrix = torch.mm(features, labels.T)
-        one_diag = torch.eye(sim_matrix.shape[0], device=sim_matrix.device)
-        
-        sim_matrix = torch.pow(sim_matrix - one_diag, exponent=2)
-        loss = torch.sum(sim_matrix)
-
-        return loss
-    
 def get_model(
-    model_type,
-    loss_type,
     in_features,
-    n_cat,
-    n_num,
-    ind_dim=-1,
-    embedding_dim=1024,
     hidden_dim=1024,
     proj_dim=128,
-    max_num_head=-1,
-    enc=None,
-    with_ae=False,
+    M=-1,
 ):
-    model = LifeMLP(
-        model_type=model_type,
-        loss_type=loss_type,
+    model = TstLLM(
         in_features=in_features,
-        n_cat=n_cat,
-        n_num=n_num,
-        ind_dim=ind_dim,
-        embedding_dim=embedding_dim,
         hidden_dim=hidden_dim,
         proj_dim=proj_dim,
-        max_num_head=max_num_head,
-        enc=enc,
-        with_ae=with_ae,
+        M=M,
     )
     
-    supcon_criterion = SupConLoss()
-    clip_criterion = ClipLoss()
-    
-    return model, supcon_criterion, clip_criterion
+    criterion = SupConLoss()
+
+    return model, criterion
 
 def train(
     model,
     train_loader,
-    loss_type,
-    supcon_criterion,
-    clip_criterion,
+    criterion,
     seed,
     learning_rate,
     iters,
-    with_ae=False,
     model_save_path=None,
 ):
     train_iterator = iter(train_loader)
@@ -631,9 +393,6 @@ def train(
     pbar = tqdm(range(iters))
     train_losses = AverageMeter()
     
-    if loss_type == 'supcon_v2':
-        indicator_matrix = copy.deepcopy(train_loader.dataset.indicators)
-    
     n = 0
     for epoch in range(epochs):
         for i, batch in enumerate(train_loader):
@@ -643,68 +402,21 @@ def train(
             if remainder != 0 and epoch == epochs - 1 and i == remainder:
                 break
                 
-            if loss_type == 'supcon_v2':
-                if n % 100 == 0:
-                    best_score = -1
-                    best_k = -1
-                    best_kmeans = None
-                    for k in [5, 10, 15, 20]:
-                        d = indicator_matrix.shape[1]
-                        kmeans = faiss.Kmeans(d, k, niter=20, nredo=1, verbose=False, seed=n, gpu=1)
-                        kmeans.train(indicator_matrix)
-                        _, cluster_labels = kmeans.index.search(indicator_matrix, 1)
-                        cluster_labels = cluster_labels.squeeze(axis=-1)
-                        score = silhouette_score(indicator_matrix, cluster_labels)
-
-                        if score >= best_score:
-                            best_score = score
-                            best_k = k
-                            best_kmeans = kmeans
-                
             inputs, _, indicator = batch
 
             inputs = inputs.cuda().float()
 
             bsz = inputs.shape[0]
             features, ae_features = model(inputs)
-            
-            if loss_type == 'supcon':
-                features = features.unsqueeze(dim=1)
-                num_indicator = indicator.shape[1]
-                indicator_idx = random.sample(range(num_indicator), 1)[0]
-                labels = indicator[:, indicator_idx]
-                labels = labels.cuda()
-                loss = supcon_criterion(features=features, labels=labels)
-                
-            elif loss_type == 'supcon_v2':
-                _, labels = kmeans.index.search(indicator, 1)
-                labels = labels.squeeze(axis=-1)
-                labels = torch.tensor(labels).cuda()
-                
-                features = features.unsqueeze(dim=1)
-                loss = supcon_criterion(features=features, labels=labels)
-                
-            elif loss_type == 'supcon_v3':
-                supcon_loss_list = []
-                for i, feature in enumerate(features):
-                    feature = feature.unsqueeze(dim=1)
-                    label = indicator[:, i]
-                    label = label.cuda()
-                    loss = supcon_criterion(features=feature, labels=label)
-                    supcon_loss_list.append(loss)
-                loss = torch.stack(supcon_loss_list).mean()
-                
-            elif loss_type == 'clip':
-                labels = F.normalize(indicator.float(), dim=1)
-                labels = labels.cuda()
-                loss = clip_criterion(features=features, labels=labels)
-                
-            ae_labels = F.normalize(inputs, dim=1)
-            
-            
-            if with_ae:
-                ae_loss = clip_criterion(features=ae_features, labels=ae_labels)
-                loss = loss + ae_loss
+
+            supcon_loss_list = []
+            for i, feature in enumerate(features):
+                feature = feature.unsqueeze(dim=1)
+                label = indicator[:, i]
+                label = label.cuda()
+                loss = criterion(features=feature, labels=label)
+                supcon_loss_list.append(loss)
+            loss = torch.stack(supcon_loss_list).mean()
 
             optimizer.zero_grad()
             loss.backward()
