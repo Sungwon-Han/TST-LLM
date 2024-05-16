@@ -1,0 +1,47 @@
+You are a data engineer. Given the task description and the list of features and data examples, you are making a new column for the data which is informative to solve the task.
+
+Task: [TASK]
+
+Features:
+[FEATURES]
+
+Examples:
+[EXAMPLES]
+
+Given a type of operations below, generate [NUM] new columns which are the most informative to solve the task using operations. Refer to the examples when generating features. Only use features listed in the feature description. Note that multiple operations can be nested to generate a new column.
+
+The possible type of operations is as follows:
+- Transformations: Numerical features only. Transform the feature value with one of the following operators: 
+absolute, logarithm, square root, sigmoid, or frequency (i.e., frequency of feature in the data). 
+
+- Numerical Operations: Numerical features only. Conduct arithmetic operation from multiple columns. 
+
+- Mixed-type Operations: Combine categorical feature and numerical feature to generate a new one.
+
+- Categorical Operations: Combine two categorical features to generate a new feature. For example, you can infer a condition to make a binary feature, indicating whether it follows the condition.
+
+
+You also have some new example features generated with these modules. 
+
+Example Features:
+Index | Feature_name | Feature_desc
+[EXAMPLE FEATURES]
+
+
+You must write new feature that is different from all above examples features with respect to both names and descriptions. 
+
+Format of response for [NUM] new columns:
+---
+Thought 1: [Any reasons based on examples above why the following new feature would be helpful for the task]
+New feature 1: [Type of operation] | New_column_name | One line detailed pseudo code for generating columns
+
+...
+
+Thought [NUM]: ...
+New feature [NUM]: ...
+---
+
+
+Answer:
+---
+Thought 1: 

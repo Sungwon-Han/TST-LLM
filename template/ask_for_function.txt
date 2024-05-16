@@ -1,0 +1,24 @@
+Provide me a python code for function, given description below.
+
+Function name: column_appender
+
+Input: Dataframe df_input
+
+Input Features:
+[FEATURES]
+
+Output: Dataframe df_output. 
+
+Function description: Create a new dataframe df_output. Each column in df_output contains new columns which are made based on the column description below. Be sure that the function code well matches with its feature type (i.e., numerical, categorical), and follows the below guidelines.
+
+Code guidelines (Format - Type | New column name | One line pseudo code): 
+- Generate each column with one line code.
+- If there is no sufficient information to generate code, ignore the corresponding column.
+- Make sure that the resulting type column is either string (for categorical) or numeric (for continuous).
+
+Column description: 
+[DESCRIPTIONS]
+
+
+Wrap only the function part with <start> and <end>.
+Do not add comments, descriptions, and package importing lines in the response.

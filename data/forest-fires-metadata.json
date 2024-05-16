@@ -1,0 +1,15 @@
+{
+    "X":"x-axis spatial coordinate within the Montesinho park map",
+    "Y":"y-axis spatial coordinate within the Montesinho park map",
+    "month":"month of the year",
+    "day":"day of the week",
+    "FFMC":"FFMC index from the FWI system",
+    "DMC":"DMC index from the FWI system",
+    "DC":"DC index from the FWI system",
+    "ISI":"ISI index from the FWI system",
+    "temp":"temperature in Celsius degrees",
+    "RH":"relative humidity in %",
+    "wind":"wind speed in km/h",
+    "rain":"outside rain in mm/m2",
+    "area":"the burned area of the forest (in ha)"
+}
