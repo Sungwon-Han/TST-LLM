@@ -1,6 +1,6 @@
 # LLM-Guided Self-Supervised Tabular Learning With Task-Specific Pre-text Tasks #
 
-This repo is the PyTorch code of our paper, which is currently under review.
+This repo is the PyTorch code of our paper, which will be published on TMLR'25.
 
 ## Required packages ##
 - python == 3.10.4
